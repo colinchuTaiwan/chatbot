@@ -40,7 +40,7 @@ def get_db_collection():
         # 使用 PersistentClient 讀取現有資料庫
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
         # 這裡名稱須與你建立索引時一致
-        return chroma_client.get_collection(name="165_cases")
+        return chroma_client.get_collection(name="case_docs")
     except Exception as e:
         st.error(f"資料庫連線失敗: {e}")
         return None
