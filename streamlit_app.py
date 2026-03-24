@@ -19,41 +19,44 @@ def get_genai_client():
 client = get_genai_client()
 GEN_MODEL_ID = "gemini-2.0-flash" 
 EMBED_MODEL_ID = "text-embedding-004" 
-CHROMA_PATH = "chroma_crime_db"
-DATA_FOLDER = "case_docs" # 存放 .txt 案例的資料夾
 
-# --- 2. 向量資料庫：掃描資料夾並初始化 ---
+# 重點：將路徑設在 /tmp 避免 Read-only 錯誤
+CHROMA_PATH = "/tmp/chroma_crime_db" 
+DATA_FOLDER = "case_docs"
+
+# --- 2. 向量資料庫：處理 /tmp 與掃描 ---
 def initialize_database_from_folder():
-    """自動讀取 case_docs/ 下的所有 txt 並建立索引"""
+    """自動讀取 case_docs/ 下的所有 txt 並建立索引於 /tmp"""
     if not os.path.exists(DATA_FOLDER):
-        st.error(f"❌ 找不到資料夾：{DATA_FOLDER}")
+        st.error(f"❌ 找不到案例資料夾：{DATA_FOLDER}")
         return
 
     txt_files = [f for f in os.listdir(DATA_FOLDER) if f.endswith('.txt')]
-    
     if not txt_files:
         st.error(f"❌ {DATA_FOLDER} 資料夾內沒有任何 .txt 檔案。")
         return
 
     try:
+        # 確保暫存路徑存在
+        os.makedirs(CHROMA_PATH, exist_ok=True)
+        
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        # 重置 Collection
+        
+        # 清理並重建 Collection
         try:
             chroma_client.delete_collection(name="case_docs")
         except:
             pass
         col = chroma_client.get_or_create_collection(name="case_docs")
         
-        all_texts = []
-        all_metadatas = []
-        all_ids = []
+        all_texts, all_metadatas, all_ids = [], [], []
 
-        with st.status("正在讀取檔案與建立向量索引...", expanded=True) as status:
+        with st.status("正在掃描檔案並寫入暫存資料庫...", expanded=True) as status:
             for i, filename in enumerate(txt_files):
                 file_path = os.path.join(DATA_FOLDER, filename)
-                # 嘗試多種編碼以防中文亂碼
                 content = ""
-                for enc in ['utf-8', 'utf-8-sig', 'cp950', 'big5']:
+                # 自動嘗試編碼防止 ASCII 錯誤
+                for enc in ['utf-8-sig', 'utf-8', 'cp950', 'big5']:
                     try:
                         with open(file_path, 'r', encoding=enc) as f:
                             content = f.read().strip()
@@ -66,40 +69,38 @@ def initialize_database_from_folder():
                     all_metadatas.append({"filename": filename})
                     all_ids.append(f"doc_{i}")
 
-            # 批次 Embedding 處理 (每 50 筆一組)
+            # 批次處理 Embedding
             batch_size = 50
             for i in range(0, len(all_texts), batch_size):
                 batch_t = [str(t) for t in all_texts[i:i+batch_size]]
-                batch_m = all_metadatas[i:i+batch_size]
-                batch_i = all_ids[i:i+batch_size]
-                
                 emb_res = client.models.embed_content(
                     model=EMBED_MODEL_ID,
                     contents=batch_t,
                     config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
                 )
                 embeddings = [e.values for e in emb_res.embeddings]
-                
                 col.add(
                     documents=batch_t,
                     embeddings=embeddings,
-                    metadatas=batch_m,
-                    ids=batch_i
+                    metadatas=all_metadatas[i:i+batch_size],
+                    ids=all_ids[i:i+batch_size]
                 )
                 st.write(f"已索引檔案：{min(i+batch_size, len(all_texts))} / {len(all_texts)}")
             
-            status.update(label="✅ 資料庫掃描並建立完成！", state="complete")
+            status.update(label="✅ 資料庫初始化成功！", state="complete")
         st.rerun()
     except Exception as e:
-        st.error(f"初始化失敗: {e}")
+        st.error(f"初始化失敗 (可能是權限或編碼問題): {e}")
 
 @st.cache_resource
 def get_db_collection():
     try:
+        # 若 /tmp 目錄不存在，代表尚未初始化
+        if not os.path.exists(CHROMA_PATH):
+            return None
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
         all_collections = chroma_client.list_collections()
-        col_names = [c.name for c in all_collections]
-        if not col_names:
+        if not all_collections:
             return None
         return chroma_client.get_collection(name="case_docs")
     except:
@@ -108,35 +109,35 @@ def get_db_collection():
 collection = get_db_collection()
 
 # --- 3. UI 介面 ---
-st.title("🚨 165 智慧防詐分析系統 (RAG 資料夾版)")
+st.title("🚨 165 智慧防詐分析系統")
 
 with st.sidebar:
     st.header("系統管理")
     if collection is None or collection.count() == 0:
-        st.warning("⚠️ 檢測到資料庫為空")
-        if st.button("🚀 掃描 case_docs 資料夾"):
+        st.warning("⚠️ 檢測到暫存資料庫為空")
+        if st.button("🚀 掃描並匯入案例檔案"):
             initialize_database_from_folder()
     else:
-        st.success("✅ 資料庫運作中")
-        st.metric("案例總數", f"{collection.count()} 則")
-        if st.button("♻️ 重新掃描資料夾內容"):
+        st.success("✅ 資料庫已就緒")
+        st.metric("當前案例總數", f"{collection.count()} 則")
+        if st.button("♻️ 重新掃描 case_docs/"):
             initialize_database_from_folder()
     
     st.markdown("---")
-    st.info("知識來源：`case_docs/` 目錄下的所有文字檔")
+    st.caption(f"DB Path: {CHROMA_PATH}")
 
-# --- 4. 分析邏輯 ---
-user_input = st.text_area("請輸入您遇到的可疑訊息或對話內容：", placeholder="例如：Threads 看到有人要送我東西...", height=150)
+# --- 4. 核心分析區 ---
+user_input = st.text_area("請輸入可疑內容：", placeholder="例如：Threads 看到有人要送公仔...", height=150)
 
-if st.button("開始 AI 案例比對"):
+if st.button("開始 AI 比對分析"):
     if not user_input:
-        st.warning("請先輸入內容。")
+        st.warning("請輸入內容。")
     elif not collection:
-        st.error("資料庫未初始化，請點擊左側掃描資料夾。")
+        st.error("資料庫未初始化，請點擊左側掃描按鈕。")
     else:
-        with st.spinner("🔍 正在從 case_docs 檢索相似案例..."):
+        with st.spinner("🔍 正在從暫存庫檢索相似案件..."):
             try:
-                # A. 查詢內容向量化
+                # 查詢向量化
                 emb_res = client.models.embed_content(
                     model=EMBED_MODEL_ID,
                     contents=user_input.strip(),
@@ -144,26 +145,23 @@ if st.button("開始 AI 案例比對"):
                 )
                 query_vector = emb_res.embeddings[0].values
                 
-                # B. 檢索最相關的 3 個案例
+                # 檢索相似度前 3 名
                 results = collection.query(query_embeddings=[query_vector], n_results=3)
                 docs = results['documents'][0] if results['documents'] else []
                 metas = results['metadatas'][0] if results['metadatas'] else []
                 
                 context = ""
                 for i, d in enumerate(docs):
-                    source = metas[i]['filename'] if i < len(metas) else "未知檔案"
-                    context += f"\n--- 來源檔案: {source} ---\n{d}\n"
+                    source = metas[i]['filename'] if i < len(metas) else "未知"
+                    context += f"\n[參考來源: {source}]\n{d}\n"
 
-                # C. 呼叫 Gemini
+                # 呼叫 Gemini 生成專業報告
                 response = client.models.generate_content(
                     model=GEN_MODEL_ID,
-                    contents=f"【案例庫參考內容】:\n{context if context else '查無直接相似案例'}\n\n【民眾當前詢問】:\n{user_input}",
+                    contents=f"參考案例：\n{context}\n\n民眾詢問：\n{user_input}",
                     config=types.GenerateContentConfig(
-                        system_instruction=(
-                            "你是一位 165 刑事偵查專家。請比對參考內容與民眾詢問，找出詐騙手法的共通性。"
-                            "若相似度高，請給予嚴厲警告，並提供應對建議。"
-                        ),
-                        temperature=0.1,
+                        system_instruction="你是一位專業的165防詐官。請針對民眾詢問內容，比對參考案例中的手法特徵，提供風險評估與防範行動清單。",
+                        temperature=0.1
                     )
                 )
 
@@ -171,13 +169,12 @@ if st.button("開始 AI 案例比對"):
                 st.markdown(response.text)
                 
                 if docs:
-                    with st.expander("查看原始參考檔案內容"):
+                    with st.expander("🔍 查看參考的原始檔案"):
                         for i, doc in enumerate(docs):
-                            source = metas[i]['filename'] if i < len(metas) else "未知"
-                            st.info(f"📄 參考檔案: {source}\n\n{doc}")
+                            st.info(f"📄 來源檔案: {metas[i]['filename']}\n\n{doc}")
 
             except Exception as e:
-                st.error(f"分析過程發生錯誤: {e}")
+                st.error(f"分析失敗: {e}")
 
 st.markdown("---")
-st.caption("🔍 系統狀態：已連接至本地向量庫 | Embedding: text-embedding-004")
+st.caption("🚨 本系統為 RAG 技術展示，若遇疑似詐騙請撥打 165。")
