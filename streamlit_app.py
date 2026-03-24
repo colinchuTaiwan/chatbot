@@ -4,6 +4,12 @@ import chromadb
 from google import genai
 from google.genai import types
 
+st.sidebar.write("### 雲端檔案檢查")
+st.sidebar.write(f"目前目錄內容: {os.listdir('.')}")
+
+if os.path.exists("chroma_crime_db"):
+    st.sidebar.write(f"資料庫內檔案: {os.listdir('chroma_crime_db')}")
+    
 # --- 頁面配置 ---
 st.set_page_config(page_title="165 智慧防詐小幫手", page_icon="🚨", layout="wide")
 
