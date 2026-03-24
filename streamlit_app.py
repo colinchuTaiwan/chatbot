@@ -25,8 +25,8 @@ def get_genai_client():
 client = get_genai_client()
 
 # 🔥 修正點 2: 修正模型路徑名稱
-GEN_MODEL_ID = "models/gemini-2.0-flash"      # 使用 2.0 Flash 速度更快
-EMBED_MODEL_ID = "models/text-embedding-004"  # 正確的名稱是 text-embedding-004
+GEN_MODEL_ID = "gemini-flash-latest"      # 使用 2.0 Flash 速度更快
+EMBED_MODEL_ID = "gemini-embedding-001"  # 正確的名稱是 text-embedding-004
 CHROMA_PATH = "chroma_crime_db"
 
 # --- 2. 向量資料庫連線 ---
