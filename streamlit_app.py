@@ -19,8 +19,8 @@ def get_genai_client():
 client = get_genai_client()
 
 # 模型 ID 保持不變 (依你要求)
-GEN_MODEL_ID = "gemini-flash-latest"      
-EMBED_MODEL_ID = "gemini-embedding-001"   
+GEN_MODEL_ID = "gemini-flash-latest"   
+EMBED_MODEL_ID = "gemini-embedding-001"  
 CHROMA_PATH = "chroma_db_cloud" # 使用新的路徑避免舊檔案干擾
 TXT_DOCS_PATH = "case_docs"     # 存放 txt 檔案的資料夾
 
