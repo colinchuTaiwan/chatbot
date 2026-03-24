@@ -1,101 +1,56 @@
-import os
 import streamlit as st
-import chromadb
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
-# --- 頁面配置 ---
-st.set_page_config(page_title="165 智慧防詐小幫手", page_icon="🚨", layout="wide")
+# Show title and description.
+st.title("💬 Chatbot")
+st.write(
+    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
+    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
+    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
+)
 
-# --- 1. 初始化與 API 配置 ---
-@st.cache_resource
-def get_genai_client():
-    return genai.Client(
-        api_key=os.getenv("GEMINI_API_KEY"),
-        http_options={'api_version': 'v1beta'}
-    )
+# Ask user for their OpenAI API key via `st.text_input`.
+# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
+# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
+openai_api_key = st.text_input("OpenAI API Key", type="password")
+if not openai_api_key:
+    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
+else:
 
-client = get_genai_client()
-GEN_MODEL_ID = "gemini-flash-latest" 
-EMBED_MODEL_ID = "gemini-embedding-001" 
-CHROMA_PATH = "chroma_crime_db"
+    # Create an OpenAI client.
+    client = OpenAI(api_key=openai_api_key)
 
-# --- 2. 向量資料庫連線 ---
-@st.cache_resource
-def get_db_collection():
-    try:
-        chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        return chroma_client.get_collection(name="165_cases")
-    except Exception as e:
-        st.error(f"資料庫載入失敗: {e}")
-        return None
+    # Create a session state variable to store the chat messages. This ensures that the
+    # messages persist across reruns.
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-collection = get_db_collection()
+    # Display the existing chat messages via `st.chat_message`.
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-# --- UI 介面設計 ---
-st.title("🚨 165 智慧防詐分析系統 (RAG 實戰版)")
-st.markdown(f"目前資料庫中共有 **{collection.count() if collection else 0}** 則最新報案摘要")
+    # Create a chat input field to allow the user to enter a message. This will display
+    # automatically at the bottom of the page.
+    if prompt := st.chat_input("What is up?"):
 
-with st.sidebar:
-    st.header("系統狀態")
-    st.success("✅ Gemini 3 Flash 已連線")
-    st.info(f"📊 知識鮮度：{st.session_state.get('update_date', '2026-03-23')}")
-    st.markdown("---")
-    st.write("本系統利用 RAG 技術比對 165 官網最新案例，提供精準風險評估。")
+        # Store and display the current prompt.
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-# --- 輸入區 ---
-user_input = st.text_area("請輸入您遇到的可疑訊息、簡訊或對話內容：", 
-                         placeholder="例如：我在 Threads 看到有人要送我手燈套，但要付 60 元運費...",
-                         height=150)
+        # Generate a response using the OpenAI API.
+        stream = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": m["role"], "content": m["content"]}
+                for m in st.session_state.messages
+            ],
+            stream=True,
+        )
 
-if st.button("開始進行 AI 比對與分析"):
-    if not user_input:
-        st.warning("請先輸入內容再進行分析。")
-    else:
-        with st.spinner("🔍 正在搜尋案例庫並分析風險中..."):
-            try:
-                # A. 向量化查詢內容
-                emb = client.models.embed_content(
-                    model=EMBED_MODEL_ID,
-                    contents=user_input,
-                    config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
-                )
-                
-                # B. 從 ChromaDB 檢索相關案例
-                results = collection.query(
-                    query_embeddings=[emb.embeddings[0].values],
-                    n_results=3
-                )
-                
-                # 整理檢索到的參考內容
-                docs = results['documents'][0]
-                context = "\n---\n".join(docs) if docs else "查無直接相關歷史案例。"
-
-                # C. 呼叫 Gemini 生成報告
-                response = client.models.generate_content(
-                    model=GEN_MODEL_ID,
-                    contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問內容】:\n{user_input}",
-                    config=types.GenerateContentConfig(
-                        system_instruction=(
-                            "你是一位專業的 165 防詐分析官。請比對參考案例與使用者問題，"
-                            "指出手法相似處（如特定暱稱、平台、轉帳理由）。"
-                            "如果發現高度吻合，請用嚴厲的語氣警告。最後給予具體建議。"
-                        ),
-                        temperature=0.1,
-                    )
-                )
-
-                # --- 顯示結果 ---
-                st.subheader("💡 分析報告")
-                st.markdown(response.text)
-                
-                with st.expander("查看 AI 參考的原始案例數據"):
-                    for i, doc in enumerate(docs):
-                        st.info(f"參考案例 {i+1}:\n\n{doc}")
-
-            except Exception as e:
-                st.error(f"分析過程發生錯誤: {e}")
-
-# --- 頁尾 ---
-st.markdown("---")
-st.caption("⚠️ 本系統僅供參考，若遇緊急情況請撥打 165 反詐騙專線諮詢。")
+        # Stream the response to the chat using `st.write_stream`, then store it in 
+        # session state.
+        with st.chat_message("assistant"):
+            response = st.write_stream(stream)
+        st.session_state.messages.append({"role": "assistant", "content": response})
