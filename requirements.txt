@@ -1,2 +1,3 @@
+google-genai
+chromadb
 streamlit
-openai
