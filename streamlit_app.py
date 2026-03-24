@@ -65,7 +65,7 @@ def get_db_collection():
 collection = get_db_collection()
 
 # --- UI 介面設計 ---
-st.title("🚨 165 智慧防詐分析系統 (Cloud 穩定版)")
+st.title("🚨 165 智慧防詐分析系統")
 case_count = collection.count() if collection else 0
 st.markdown(f"目前資料庫中共有 **{case_count}** 則防詐案例")
 
