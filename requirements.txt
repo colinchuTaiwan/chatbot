@@ -2,3 +2,4 @@ google-genai
 streamlit
 chromadb>=0.4.0
 pydantic>=2.0
+pandas
