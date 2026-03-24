@@ -123,7 +123,7 @@ if st.button("🚀 開始進行 AI 分析", type="primary"):
                 st.markdown(response.text)
                 with st.expander("查看 AI 參考的原始案例數據"):
                     for i, doc in enumerate(docs):
-                        st.info(f"參考案例 {i+1}:\n\n{doc}"                
+                        st.info(f"參考案例 {i+1}:\n\n{doc}")               
             except Exception as e:
                 st.error(f"分析失敗: {e}")
 # --- 頁尾 ---
