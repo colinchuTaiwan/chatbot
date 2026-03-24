@@ -26,7 +26,7 @@ client = get_genai_client()
 
 # 模型 ID 鎖定 (根據你的可用清單)
 GEN_MODEL_ID = "gemini-flash-latest"      
-EMBED_MODEL_ID = "models/embedding-001"   # 截圖顯示你有此模型的額度
+EMBED_MODEL_ID = "embedding-001"   # 截圖顯示你有此模型的額度
 CHROMA_PATH = "chroma_crime_db"
 
 # --- 2. 向量資料庫連線 ---
