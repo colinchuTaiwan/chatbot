@@ -30,7 +30,7 @@ def get_genai_client():
     return genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
 
 client = get_genai_client()
-GEN_MODEL_ID = "gemini-2.0-flash" 
+GEN_MODEL_ID = "gemini-1.5-flash" 
 EMBED_MODEL_ID = "text-embedding-004" 
 CHROMA_PATH = "/tmp/chroma_crime_db" 
 DATA_FOLDER = "case_docs"
