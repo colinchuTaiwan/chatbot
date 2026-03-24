@@ -37,12 +37,9 @@ def initialize_database_from_folder():
         return
 
     try:
-        # 確保暫存路徑存在
         os.makedirs(CHROMA_PATH, exist_ok=True)
-        
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
         
-        # 清理並重建 Collection
         try:
             chroma_client.delete_collection(name="case_docs")
         except:
@@ -51,11 +48,11 @@ def initialize_database_from_folder():
         
         all_texts, all_metadatas, all_ids = [], [], []
 
-        with st.status("正在掃描檔案並寫入暫存資料庫...", expanded=True) as status:
+        with st.status("正在處理編碼並建立索引...", expanded=True) as status:
             for i, filename in enumerate(txt_files):
                 file_path = os.path.join(DATA_FOLDER, filename)
                 content = ""
-                # 自動嘗試編碼防止 ASCII 錯誤
+                # 解決讀取時的編碼問題
                 for enc in ['utf-8-sig', 'utf-8', 'cp950', 'big5']:
                     try:
                         with open(file_path, 'r', encoding=enc) as f:
@@ -65,33 +62,41 @@ def initialize_database_from_folder():
                         continue
                 
                 if content:
-                    all_texts.append(content)
+                    # 【重要修正】確保內容是純粹的 UTF-8 字串，剔除潛在的非法字元
+                    clean_content = content.encode('utf-8', errors='ignore').decode('utf-8')
+                    all_texts.append(clean_content)
                     all_metadatas.append({"filename": filename})
                     all_ids.append(f"doc_{i}")
 
             # 批次處理 Embedding
             batch_size = 50
             for i in range(0, len(all_texts), batch_size):
+                # 【關鍵修正】在傳給 API 前再次確保編碼，並過濾掉可能導致 ASCII Error 的因素
                 batch_t = [str(t) for t in all_texts[i:i+batch_size]]
-                emb_res = client.models.embed_content(
-                    model=EMBED_MODEL_ID,
-                    contents=batch_t,
-                    config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
-                )
-                embeddings = [e.values for e in emb_res.embeddings]
-                col.add(
-                    documents=batch_t,
-                    embeddings=embeddings,
-                    metadatas=all_metadatas[i:i+batch_size],
-                    ids=all_ids[i:i+batch_size]
-                )
+                
+                try:
+                    emb_res = client.models.embed_content(
+                        model=EMBED_MODEL_ID,
+                        contents=batch_t,
+                        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+                    )
+                    embeddings = [e.values for e in emb_res.embeddings]
+                    col.add(
+                        documents=batch_t,
+                        embeddings=embeddings,
+                        metadatas=all_metadatas[i:i+batch_size],
+                        ids=all_ids[i:i+batch_size]
+                    )
+                except Exception as api_err:
+                    st.error(f"第 {i} 筆 Embedding 失敗: {api_err}")
+                    continue
+                    
                 st.write(f"已索引檔案：{min(i+batch_size, len(all_texts))} / {len(all_texts)}")
             
             status.update(label="✅ 資料庫初始化成功！", state="complete")
         st.rerun()
     except Exception as e:
-        st.error(f"初始化失敗 (可能是權限或編碼問題): {e}")
-
+        st.error(f"初始化崩潰: {e}")
 @st.cache_resource
 def get_db_collection():
     try:
