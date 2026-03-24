@@ -33,8 +33,8 @@ def get_genai_client():
 client = get_genai_client()
 
 # 根據你之前的清單，這裡鎖定最穩定的模型名稱
-GEN_MODEL_ID = "models/gemini-2.0-flash" 
-EMBED_MODEL_ID = "models/text-embedding-004" 
+GEN_MODEL_ID = "gemini-flash-latest" 
+EMBED_MODEL_ID = "gemini-embedding-001" 
 CHROMA_PATH = "chroma_crime_db"
 
 # --- 3. 向量資料庫連線 ---
