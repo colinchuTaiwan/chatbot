@@ -38,17 +38,27 @@ CHROMA_PATH = "chroma_crime_db"
 # --- 2. 向量資料庫連線 ---
 @st.cache_resource
 def get_db_collection():
-    # 確保資料庫目錄存在，避免部署時報錯
-    if not os.path.exists(CHROMA_PATH):
-        st.warning(f"⚠️ 找不到向量資料庫目錄 '{CHROMA_PATH}'，請確認已上傳資料庫檔案。")
-        return None
     try:
-        # 使用 PersistentClient 讀取現有資料庫
+        # 1. 建立連線
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        # 這裡名稱須與你建立索引時一致
-        return chroma_client.get_collection(name="case_docs")
+        
+        # 2. 取得目前資料庫中「所有」可用的 Collection 名稱
+        all_collections = chroma_client.list_collections()
+        col_names = [c.name for c in all_collections]
+        
+        # 3. 自動偵測並回傳第一個有效的 Collection
+        if not col_names:
+            st.error(f"❌ 錯誤：資料庫檔案 '{CHROMA_PATH}' 內沒有任何資料表(Collection)！")
+            return None
+            
+        # 優先找 case_docs，找不到就抓第一個
+        target_col = "case_docs" if "case_docs" in col_names else col_names[0]
+        
+        st.sidebar.success(f"✅ 已連線至資料表: {target_col}")
+        return chroma_client.get_collection(name=target_col)
+        
     except Exception as e:
-        st.error(f"資料庫連線失敗: {e}")
+        st.error(f"⚠️ 資料庫初始化失敗: {str(e)}")
         return None
 
 collection = get_db_collection()
