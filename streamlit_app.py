@@ -5,11 +5,11 @@ import pandas as pd
 from google import genai
 from google.genai import types
 
-st.sidebar.write("### 雲端檔案檢查")
-st.sidebar.write(f"目前目錄內容: {os.listdir('.')}")
+#st.sidebar.write("### 雲端檔案檢查")
+#st.sidebar.write(f"目前目錄內容: {os.listdir('.')}")
 
-if os.path.exists("chroma_crime_db"):
-    st.sidebar.write(f"資料庫內檔案: {os.listdir('chroma_crime_db')}")
+#if os.path.exists("chroma_crime_db"):
+#    st.sidebar.write(f"資料庫內檔案: {os.listdir('chroma_crime_db')}")
     
 # --- 頁面配置 ---
 st.set_page_config(page_title="165 智慧防詐小幫手", page_icon="🚨", layout="wide")
@@ -36,7 +36,7 @@ GEN_MODEL_ID = "gemini-2.0-flash"
 EMBED_MODEL_ID = "text-embedding-004" # 建議使用最新版 Embedding 模型
 CHROMA_PATH = "chroma_crime_db" # 指向包含 chroma.sqlite3 的資料夾
 
-# --- 2. 向量資料庫連線 ---
+
 # --- 2. 向量資料庫連線與初始化工具 ---
 def initialize_database():
     """手動觸發初始化資料庫的函式"""
@@ -49,7 +49,7 @@ def initialize_database():
         # 建立或取得 Collection
         col = chroma_client.get_or_create_collection(name="case_docs")
         
-        df = pd.read_csv("cases.csv")
+        df = pd.read_csv("cases.csv", encoding='utf-8-sig')
         texts = df['content'].fillna("").tolist()
         
         with st.status("正在建立向量索引 (這可能需要一分鐘)..."):
@@ -188,4 +188,3 @@ if st.button("開始進行 AI 比對與分析"):
 # --- 頁尾 ---
 st.markdown("---")
 st.caption("⚠️ 本系統基於 AI 檢索技術，結果僅供參考。若遇疑似詐騙，請務必撥打 165 反詐騙專線確認。")
-
