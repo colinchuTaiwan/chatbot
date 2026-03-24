@@ -10,11 +10,11 @@ st.set_page_config(page_title="165 智慧防詐小幫手", page_icon="🚨", lay
 # --- 1. 初始化與 API 配置 ---
 @st.cache_resource
 def get_genai_client():
-    api_key = st.text_input("gemini API Key", type="password")
-    if not api_key:
-        st.error("❌ 找不到 API Key。請在輸入API Key。")
-        st.stop()
-    return genai.Client(api_key=api_key.strip(), http_options={'api_version': 'v1beta'})
+    api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        st.error("❌ 找不到 API Key。請在 Streamlit Cloud Secrets 設定。")
+        st.stop()
+    return genai.Client(api_key=api_key.strip(), http_options={'api_version': 'v1beta'})
 
 client = get_genai_client()
 
