@@ -1,3 +1,5 @@
 google-genai
 streamlit
+pdf2image
+pillow
 chromadb
