@@ -78,15 +78,16 @@ with st.sidebar:
         st.rerun()
 
 # --- 分析邏輯 ---
-user_input = st.text_area("請輸入可疑訊息內容：", height=150)
-
+user_input = st.text_area("請輸入您遇到的可疑訊息、簡訊或對話內容：", 
+                         placeholder="例如：我在 Threads 看到有人要送我手燈套，但要付 60 元運費...",
+                         height=150)
 if st.button("🚀 開始進行 AI 分析", type="primary"):
     if not user_input:
         st.warning("請輸入內容。")
     elif case_count == 0:
         st.error("❌ 資料庫無案例，請確保 GitHub 上有 `case_docs` 資料夾與 .txt 檔案。")
     else:
-        with st.spinner("🔍 檢索與分析中..."):
+        with st.spinner("🔍 正在搜尋案例庫並分析風險中..."):
             try:
                 # 1. 向量化查詢
                 emb = client.models.embed_content(
@@ -107,15 +108,24 @@ if st.button("🚀 開始進行 AI 分析", type="primary"):
                 # 3. 生成
                 response = client.models.generate_content(
                     model=GEN_MODEL_ID,
-                    contents=f"【參考案例】:\n{context}\n\n【民眾詢問】:\n{user_input}",
+                    contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問】:\n{user_input}",
                     config=types.GenerateContentConfig(
-                        system_instruction="你是一位專業的 165 防詐分析官。請比對參考案例與使用者問題，指出手法相似處並給予具體建議。",
+                        system_instruction=(
+                            "你是一位專業的 165 防詐分析官。請比對參考案例與使用者問題，"
+                            "指出手法相似處（如特定暱稱、平台、轉帳理由）。"
+                            "如果發現高度吻合，請用嚴厲的語氣警告。最後給予具體建議。"
+                        ),
                         temperature=0.1,
                     )
                 )
 
                 st.subheader("💡 分析報告")
                 st.markdown(response.text)
-                
+                with st.expander("查看 AI 參考的原始案例數據"):
+                    for i, doc in enumerate(docs):
+                        st.info(f"參考案例 {i+1}:\n\n{doc}"                
             except Exception as e:
                 st.error(f"分析失敗: {e}")
+# --- 頁尾 ---
+st.markdown("---")
+st.caption("⚠️ 本系統僅供參考，若遇緊急情況請撥打 165 反詐騙專線諮詢。")
