@@ -10,7 +10,7 @@ st.set_page_config(page_title="165 智慧防詐小幫手", page_icon="🚨", lay
 # --- 1. 初始化與 API 配置 ---
 @st.cache_resource
 def get_genai_client():
-    # 改動點：優先從 Streamlit Secrets 讀取，這是在 Cloud 運行的標準作法
+    # 優先從 Streamlit Secrets 讀取
     api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
     
     if not api_key:
@@ -19,26 +19,24 @@ def get_genai_client():
         
     return genai.Client(
         api_key=api_key.strip(),
-        http_options={'api_version': 'v1'} # 建議用 v1 較穩定
+        http_options={'api_version': 'v1beta'} # 🔥 修正點 1: 改回 v1beta 以支援最新 Embedding 模型
     )
 
 client = get_genai_client()
 
-# ⚠️ 注意：若 Cloud 環境報 404，請確保這些 ID 與你清單中的一致 (建議加上 models/ 前綴)
-GEN_MODEL_ID = "models/gemini-flash-latest" 
-EMBED_MODEL_ID = "models/gemini-embedding-004" 
+# 🔥 修正點 2: 修正模型路徑名稱
+GEN_MODEL_ID = "models/gemini-2.0-flash"      # 使用 2.0 Flash 速度更快
+EMBED_MODEL_ID = "models/text-embedding-004"  # 正確的名稱是 text-embedding-004
 CHROMA_PATH = "chroma_crime_db"
 
 # --- 2. 向量資料庫連線 ---
 @st.cache_resource
 def get_db_collection():
     try:
-        # 確保資料夾存在以免啟動報錯
         if not os.path.exists(CHROMA_PATH):
             os.makedirs(CHROMA_PATH, exist_ok=True)
             
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        # 使用 get_or_create 確保在 Cloud 初始環境也能正常運作
         return chroma_client.get_or_create_collection(name="165_cases")
     except Exception as e:
         st.error(f"資料庫載入失敗: {e}")
@@ -53,13 +51,13 @@ st.markdown(f"目前資料庫中共有 **{collection.count() if collection else 
 with st.sidebar:
     st.header("系統狀態")
     st.success("✅ Gemini 已連線")
-    st.info(f"📊 知識鮮度：{st.session_state.get('update_date', '2026-03-23')}")
+    st.info(f"📊 使用模型：{GEN_MODEL_ID}")
     st.markdown("---")
-    st.write("本系統利用 RAG 技術比對 165 官網最新案例，提供精準風險評估。")
+    st.write("本系統利用 RAG 技術比對 165 官網最新案例。")
 
 # --- 輸入區 ---
 user_input = st.text_area("請輸入您遇到的可疑訊息、簡訊或對話內容：", 
-                         placeholder="例如：我在 Threads 看到有人要送我手燈套，但要付 60 元運費...",
+                         placeholder="例如：收到簡訊說我違規停車...",
                          height=150)
 
 if st.button("開始進行 AI 比對與分析"):
@@ -109,8 +107,12 @@ if st.button("開始進行 AI 比對與分析"):
                             st.info(f"參考案例 {i+1}:\n\n{doc}")
 
             except Exception as e:
-                st.error(f"分析過程發生錯誤: {e}")
+                # 額外的 429 處理，避免 Free Tier 崩潰
+                if "429" in str(e):
+                    st.error("⚠️ 額度用盡，請等待 30 秒後再試。")
+                else:
+                    st.error(f"分析過程發生錯誤: {e}")
 
 # --- 頁尾 ---
 st.markdown("---")
-st.caption("⚠️ 本系統僅供參考，若遇緊急情況請撥打 165 反詐騙專線諮詢。")
+st.caption("⚠️ 本系統僅供參考，若遇緊急情況請撥打 165 反詐騙專線。")
