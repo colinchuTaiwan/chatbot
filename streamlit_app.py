@@ -26,7 +26,7 @@ client = get_genai_client()
 
 # ⚠️ 注意：若 Cloud 環境報 404，請確保這些 ID 與你清單中的一致 (建議加上 models/ 前綴)
 GEN_MODEL_ID = "models/gemini-flash-latest" 
-EMBED_MODEL_ID = "models/gemini-embedding-001" 
+EMBED_MODEL_ID = "models/gemini-embedding-004" 
 CHROMA_PATH = "chroma_crime_db"
 
 # --- 2. 向量資料庫連線 ---
