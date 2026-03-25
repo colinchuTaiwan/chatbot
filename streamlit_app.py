@@ -106,35 +106,25 @@ if st.button("🚀 開始進行 AI 分析", type="primary"):
                 context = "\n---\n".join(docs) if docs else "無相關案例。"
 
                 # 3. 生成
-                if any(keyword in user_input for keyword in ["被騙", "受騙", "錢被騙走"]):
-                    # 佛法安撫模式
-                    response = client.models.generate_content(
-                        model=GEN_MODEL_ID,
-                        contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問】:\n{user_input}",
-                        config=types.GenerateContentConfig(
-                            system_instruction=(
-                                "你是一位防詐專家兼佛法導師。"
-                                "請以慈悲、溫和、覺知的語氣安撫使用者，"
-                                "讓他明白遭遇詐騙並非個人罪過，鼓勵他平心靜氣面對當下。"
-                                "同時提供實際可行的防詐與後續步驟，語氣中帶有佛理智慧，例如因果、放下執著、學習經驗的角度。"
-                            ),
-                            temperature=0.3,  # 語氣溫和沉穩
-                        )
+                system_instruction=(
+                    "你是一位專業的 165 防詐分析官。請比對參考案例與使用者問題，指出手法相似處（如特定暱稱、平台、轉帳理由）。"
+                    "【核心原則】：\n"
+                    "1. 如果使用者尚未受騙，請保持嚴厲警示語氣，以防患於未然。\n"
+                    "2. **如果使用者表達『已經被騙了』或心情極度沮喪，請轉化為佛法慰藉模式**：\n"
+                    "   - 請以慈悲、溫和、覺知、感性的語氣安撫使用者。\n"
+                    "   - 讓他明白遭遇詐騙並非個人罪過，鼓勵他平心靜氣面對當下。\n"
+                    "   - 語氣要如慈母或老和尚般柔和，給予心理支柱，讓其放下執念，專注於當下的補救方案。\n"
+                    "最後，無論何種狀態，皆須給予報案與法律程序的具體建議。"
+                )
+
+                response = client.models.generate_content(
+                    model=GEN_MODEL_ID,
+                    contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問】:\n{user_input}",
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.3, # 稍微調高一點點，讓佛法安慰的話語更自然感性
                     )
-                else:
-                    # 原本防詐分析官模式
-                    response = client.models.generate_content(
-                        model=GEN_MODEL_ID,
-                        contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問】:\n{user_input}",
-                        config=types.GenerateContentConfig(
-                            system_instruction=(
-                                "你是一位專業的 165 防詐分析官。請比對參考案例與使用者問題，"
-                                "指出手法相似處（如特定暱稱、平台、轉帳理由）。"
-                                "如果發現高度吻合，請用嚴厲的語氣警告。最後給予具體建議。"
-                            ),
-                            temperature=0.1,
-                        )
-                    )
+                )
 
                 st.subheader("💡 分析報告")
                 st.markdown(response.text)
