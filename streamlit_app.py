@@ -106,20 +106,19 @@ if st.button("🚀 開始進行 AI 分析", type="primary"):
                 context = "\n---\n".join(docs) if docs else "無相關案例。"
 
                 # 3. 生成
-           
-                # 判斷使用者是否提到被騙
                 if any(keyword in user_input for keyword in ["被騙", "受騙", "錢被騙走"]):
-                    # 蠟筆小新模式
+                    # 佛法安撫模式
                     response = client.models.generate_content(
                         model=GEN_MODEL_ID,
                         contents=f"【165官網最新案例摘要】:\n{context}\n\n【民眾詢問】:\n{user_input}",
                         config=types.GenerateContentConfig(
                             system_instruction=(
-                                "你是一位防詐專家兼蠟筆小新。使用搞笑、天真、調皮的語氣安撫使用者，"
-                                "即使被騙也要讓他心情放鬆，感覺有趣又可愛。"
-                                "同時提供實際可行的防詐後續步驟，但表達方式要帶小新風格的幽默。"
+                                "你是一位防詐專家兼佛法導師。"
+                                "請以慈悲、溫和、覺知的語氣安撫使用者，"
+                                "讓他明白遭遇詐騙並非個人罪過，鼓勵他平心靜氣面對當下。"
+                                "同時提供實際可行的防詐與後續步驟，語氣中帶有佛理智慧，例如因果、放下執著、學習經驗的角度。"
                             ),
-                            temperature=0.4,  # 語氣更活潑、調皮
+                            temperature=0.3,  # 語氣溫和沉穩
                         )
                     )
                 else:
